@@ -13,9 +13,10 @@ public:
 
 	virtual bool init();
 
-
 	virtual void Run(const cv::Mat& img, std::vector<Detection> &res);
 	virtual void Run(const std::vector<cv::Mat>& imgsBatch, std::vector<std::vector<Detection>>& res);
+
+	virtual void warmUp(int epoch = 10);
 
 public:
 	virtual void preprocess(const cv::Mat& img);
@@ -26,8 +27,6 @@ public:
 	virtual void postprocess(std::vector<Detection>& res);
 	virtual void postprocess(std::vector<std::vector<Detection>>& res);
 	virtual void postprocess_cpu(std::vector<std::vector<Detection>>& res);
-
-	virtual void warmUp(int epoch=10);
 
 protected:
 	std::unique_ptr<nvinfer1::IRuntime> m_runtime;

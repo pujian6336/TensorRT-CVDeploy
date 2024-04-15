@@ -13,14 +13,19 @@ public:
 
 	virtual bool init();
 
+	virtual void Run(const cv::Mat& img, std::vector<Detection>& res, std::vector<cv::Mat>& masks);
+	virtual void Run(const std::vector<cv::Mat>& imgsBatch, std::vector<std::vector<Detection>>& res, std::vector<std::vector<cv::Mat>>& masks);
+	
+	virtual void warmUp(int epoch = 10);
+
 public:
 	virtual void preprocess(const cv::Mat& img);
 	virtual void preprocess(const std::vector<cv::Mat>& imgsBatch);
 
 	virtual bool infer();
 
-	virtual void postprocess(std::vector<Detection>& res);
-	virtual void postprocess(std::vector<std::vector<Detection>>& res);
+	virtual void postprocess(std::vector<Detection>& res, std::vector<cv::Mat> & masks);
+	virtual void postprocess(std::vector<std::vector<Detection>>& res, std::vector<std::vector<cv::Mat>>& masks);
 
 protected:
 	std::unique_ptr<nvinfer1::IRuntime> m_runtime;
@@ -38,6 +43,7 @@ protected:
 	cudaStream_t m_stream;
 
 	std::vector<AffineMatrix> m_dst2src;
+	std::vector<cv::Mat> m_img;
 
 	int m_classes_nums; // Àà±ðÊý
 

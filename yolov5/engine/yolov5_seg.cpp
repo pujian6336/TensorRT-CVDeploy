@@ -15,6 +15,8 @@ YOLO_SEG::YOLO_SEG(Config cfg) :m_cfg(cfg)
 	m_output_objects_host = nullptr;
 	m_output_seg_host = nullptr;
 
+	m_img.resize(m_cfg.batch_size);
+
 	m_output_objects_width = 39; // 7:left, top, right, bottom, scores, label, keepflag(nms过滤后，是否保留标志) + 32(mask) ;
 }
 
@@ -127,15 +129,48 @@ bool YOLO_SEG::init()
 	return true;
 }
 
+void YOLO_SEG::Run(const cv::Mat& img, std::vector<Detection>& res, std::vector<cv::Mat>& masks)
+{
+	preprocess(img);
+	infer();
+	postprocess(res, masks);
+}
+
+void YOLO_SEG::Run(const std::vector<cv::Mat>& imgsBatch, std::vector<std::vector<Detection>>& res, std::vector<std::vector<cv::Mat>>& masks)
+{
+	preprocess(imgsBatch);
+	infer();
+	postprocess(res, masks);
+}
+
+void YOLO_SEG::warmUp(int epoch)
+{
+	cv::Mat img(m_cfg.input_height, m_cfg.input_width, CV_8UC3, cv::Scalar(128, 128, 128));
+	std::vector<cv::Mat> img_batch;
+	for (int i = 0; i < m_cfg.batch_size; i++)
+	{
+		img_batch.push_back(img);
+	}
+
+	for (int i = 0; i < epoch; i++)
+	{
+		preprocess(img_batch);
+		infer();
+	}
+}
+
 void YOLO_SEG::preprocess(const cv::Mat& img)
 {
 	cuda_preprocess(img, (float*)m_buffers[0], m_cfg, m_dst2src[0], m_stream);
+	m_img[0] = img;
 }
 
 void YOLO_SEG::preprocess(const std::vector<cv::Mat>& imgsBatch)
 {
 	m_dst2src.clear();
+	m_img.clear();
 	cuda_batch_preprocess(imgsBatch, (float*)m_buffers[0], m_cfg, m_dst2src, m_stream);
+	m_img = imgsBatch;
 }
 
 bool YOLO_SEG::infer()
@@ -143,11 +178,26 @@ bool YOLO_SEG::infer()
 	return m_context->enqueueV3(m_stream);
 }
 
-void YOLO_SEG::postprocess(std::vector<Detection>& res)
+void YOLO_SEG::postprocess(std::vector<Detection>& res, std::vector<cv::Mat>& masks)
 {
+	CUDA_CHECK(cudaMemsetAsync(m_output_objects_device, 0, sizeof(float) * (m_cfg.max_det * m_output_objects_width + 1), m_stream));
+	cuda_decodeSeg((float*)m_buffers[1], m_output_objects_device, 1, m_total_objects, m_detect_dims.d[2], m_classes_nums, m_cfg.max_det, m_cfg.conf_threshold, m_stream);
+
+	cuda_nms(m_output_objects_device, m_cfg.iou_threshold, m_cfg.max_det, m_output_objects_width, m_stream);
+
+	CUDA_CHECK(cudaMemcpyAsync(m_output_objects_host, m_output_objects_device, m_cfg.batch_size * (m_cfg.max_det * 38 + 1) * sizeof(float), cudaMemcpyDeviceToHost, m_stream));
+	CUDA_CHECK(cudaMemcpyAsync(m_output_seg_host, m_buffers[2], m_cfg.batch_size * m_proto_area * sizeof(float), cudaMemcpyDeviceToHost, m_stream));
+	CUDA_CHECK(cudaStreamSynchronize(m_stream));
+
+	process(res, m_output_objects_host, m_cfg.input_width, m_cfg.input_height, m_topK, m_output_objects_width, m_dst2src[0]);
+
+	masks = process_masks(m_output_seg_host, m_proto_dims.d[2], m_proto_dims.d[3], res);
+
+	mask2OriginalSize(masks, m_img[0], m_cfg.input_width, m_cfg.input_height);
+	box2OriginalSize(res, m_dst2src[0]);
 }
 
-void YOLO_SEG::postprocess(std::vector<std::vector<Detection>>& res)
+void YOLO_SEG::postprocess(std::vector<std::vector<Detection>>& res, std::vector<std::vector<cv::Mat>>& masks)
 {
 	CUDA_CHECK(cudaMemsetAsync(m_output_objects_device, 0, sizeof(float) * (m_cfg.max_det * m_output_objects_width + 1), m_stream));
 	cuda_decodeSeg((float*)m_buffers[1], m_output_objects_device, m_cfg.batch_size, m_total_objects, m_detect_dims.d[2], m_classes_nums, m_cfg.max_det, m_cfg.conf_threshold, m_stream);
@@ -158,5 +208,13 @@ void YOLO_SEG::postprocess(std::vector<std::vector<Detection>>& res)
 	CUDA_CHECK(cudaMemcpyAsync(m_output_seg_host, m_buffers[2], m_cfg.batch_size * m_proto_area * sizeof(float), cudaMemcpyDeviceToHost, m_stream));
 	CUDA_CHECK(cudaStreamSynchronize(m_stream));
 
-	batch_process(res, m_output_objects_host, m_cfg.batch_size, m_topK, m_output_objects_width, m_dst2src);
+	batch_process(res, m_output_objects_host, m_cfg.batch_size, m_cfg.input_width, m_cfg.input_height, m_topK, m_output_objects_width, m_dst2src);
+
+	masks.resize(m_cfg.batch_size);
+	for (int i = 0; i < m_cfg.batch_size; i++)
+	{
+		masks[i] = process_masks(m_output_seg_host, m_proto_dims.d[2], m_proto_dims.d[3], res[0]);
+	}
+	mask2OriginalSize(masks, m_img, m_cfg.input_width, m_cfg.input_height);
+	box2OriginalSize(res, m_dst2src);
 }

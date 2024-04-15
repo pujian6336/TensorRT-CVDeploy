@@ -188,7 +188,7 @@ void YOLO::postprocess(std::vector<Detection>& res)
 		CUDA_CHECK(cudaMemcpyAsync(m_output_objects_host, buffers[1], m_output_area * sizeof(float), cudaMemcpyDeviceToHost, stream));
 		// 流同步
 		CUDA_CHECK(cudaStreamSynchronize(stream));
-		process(res, m_output_objects_host, m_topK, m_output_objects_width, m_dst2src[0]);
+		process(res, m_output_objects_host, m_cfg.input_width, m_cfg.input_height, m_topK, m_output_objects_width, m_dst2src[0]);
 	}
 	else
 	{
@@ -199,7 +199,7 @@ void YOLO::postprocess(std::vector<Detection>& res)
 		CUDA_CHECK(cudaMemcpyAsync(m_output_objects_host, m_output_objects_device, m_cfg.batch_size * (m_cfg.max_det * m_output_objects_width + 1) * sizeof(float), cudaMemcpyDeviceToHost, stream));
 		// 流同步
 		CUDA_CHECK(cudaStreamSynchronize(stream));
-		process(res, m_output_objects_host, m_topK, m_output_objects_width, m_dst2src[0]);
+		process(res, m_output_objects_host, m_cfg.input_width, m_cfg.input_height, m_topK, m_output_objects_width,  m_dst2src[0]);
 	}
 }
 
@@ -210,7 +210,7 @@ void YOLO::postprocess(std::vector<std::vector<Detection>>& res)
 		CUDA_CHECK(cudaMemcpyAsync(m_output_objects_host, buffers[1], m_cfg.batch_size * m_output_area * sizeof(float), cudaMemcpyDeviceToHost, stream));
 		// 流同步
 		CUDA_CHECK(cudaStreamSynchronize(stream));
-		batch_process(res, m_output_objects_host, m_cfg.batch_size, m_topK, m_output_objects_width, m_dst2src);
+		batch_process(res, m_output_objects_host, m_cfg.batch_size, m_cfg.input_width, m_cfg.input_height, m_topK, m_output_objects_width,  m_dst2src);
 	}
 	else
 	{
@@ -221,7 +221,7 @@ void YOLO::postprocess(std::vector<std::vector<Detection>>& res)
 		CUDA_CHECK(cudaMemcpyAsync(m_output_objects_host, m_output_objects_device, m_cfg.batch_size * (m_cfg.max_det * m_output_objects_width + 1) * sizeof(float), cudaMemcpyDeviceToHost, stream));
 		// 流同步
 		CUDA_CHECK(cudaStreamSynchronize(stream));
-		batch_process(res, m_output_objects_host, m_cfg.batch_size, m_topK, m_output_objects_width, m_dst2src);
+		batch_process(res, m_output_objects_host, m_cfg.batch_size, m_cfg.input_width, m_cfg.input_height, m_topK, m_output_objects_width,  m_dst2src);
 	}
 }
 
@@ -234,7 +234,7 @@ void YOLO::postprocess_cpu(std::vector<std::vector<Detection>>& res)
 	CUDA_CHECK(cudaStreamSynchronize(stream));
 
 	batch_nms(res, m_output_objects_host, m_cfg.batch_size, m_cfg.max_det * m_output_objects_width + 1, m_cfg.conf_threshold, m_cfg.iou_threshold, m_cfg.max_det);
-	batch_process(res, m_dst2src, m_cfg.input_width, m_cfg.input_height);
+	box2OriginalSize(res, m_dst2src, m_cfg.input_width, m_cfg.input_height);
 }
 
 void YOLO::warmUp(int epoch)
@@ -251,6 +251,5 @@ void YOLO::warmUp(int epoch)
 		preprocess(img_batch);
 		infer();
 	}
-	
 }
 

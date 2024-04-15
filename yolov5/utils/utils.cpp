@@ -86,7 +86,15 @@ void utils::show(const std::vector<Detection>& objects, const std::vector<std::s
             }
          
             cv::rectangle(img, cv::Point(box.bbox.left, box.bbox.top), cv::Point(box.bbox.right, box.bbox.bottom), color, 2, cv::LINE_AA);
-            cv::String det_info = classNames[box.class_id] + " " + cv::format("%.4f", box.conf);
+            cv::String det_info;
+            if (classNames.size() != 0)
+            {
+                det_info = classNames[box.class_id] + " " + cv::format("%.4f", box.conf);
+            }
+            else
+            {
+                det_info = cv::format("%i", box.class_id) + " " + cv::format("%.4f", box.conf);
+            }
             // 在方框右上角绘制对应类别的底色
             bbox_points[0][0] = cv::Point(box.bbox.left, box.bbox.top);
             bbox_points[0][1] = cv::Point(box.bbox.left + det_info.size() * 11, box.bbox.top);
@@ -94,19 +102,54 @@ void utils::show(const std::vector<Detection>& objects, const std::vector<std::s
             bbox_points[0][3] = cv::Point(box.bbox.left, box.bbox.top - 15);
             cv::fillPoly(img, bbox_point0, num_points, 1, color);
             cv::putText(img, det_info, bbox_points[0][0], cv::FONT_HERSHEY_DUPLEX, 0.6, cv::Scalar(255, 255, 255), 1, cv::LINE_AA);
-
-            //if (!box.mask[0]) // for facial landmarks
-            //{
-            //    for (auto& pt : box.land_marks)
-            //    {
-            //        cv::circle(imgsBatch[bi], pt, 1, cv::Scalar(255, 255, 255), 1, cv::LINE_AA, 0);
-            //    }
-            //}
         }
     }
     cv::imshow(windows_title, img);
     cv::waitKey(cvDelayTime);
 
+}
+
+void utils::drow_mask_bbox(cv::Mat& img, std::vector<Detection>& dets, const std::vector<std::string>& classNames, std::vector<cv::Mat>& masks, const int& cvDelayTime)
+{
+    std::string windows_title = "image";
+    cv::Point bbox_points[1][4];
+    const cv::Point* bbox_point0[1] = { bbox_points[0] };
+    int num_points[] = { 4 };
+
+    if (!dets.empty())
+    {
+        for (size_t i = 0; i < dets.size(); i++)
+        {
+            cv::Scalar color = utils::Colors::color80[dets[i].class_id];
+
+            cv::Mat mask_bgr;
+
+            cv::cvtColor(masks[i], mask_bgr, cv::COLOR_GRAY2BGR);
+            mask_bgr.setTo(color, masks[i]);
+            cv::addWeighted(mask_bgr, 0.45, img, 1.0, 0., img);
+
+            cv::rectangle(img, cv::Point(dets[i].bbox.left, dets[i].bbox.top), cv::Point(dets[i].bbox.right, dets[i].bbox.bottom), color, 2, cv::LINE_AA);
+            cv::String det_info;
+            if (classNames.size() != 0)
+            {
+                det_info = classNames[dets[i].class_id] + " " + cv::format("%.4f", dets[i].conf);
+            }
+            else
+            {
+                det_info = cv::format("%i", dets[i].class_id) + " " + cv::format("%.4f", dets[i].conf);
+            }
+            
+            // 在方框右上角绘制对应类别的底色
+            bbox_points[0][0] = cv::Point(dets[i].bbox.left, dets[i].bbox.top);
+            bbox_points[0][1] = cv::Point(dets[i].bbox.left + det_info.size() * 11, dets[i].bbox.top);
+            bbox_points[0][2] = cv::Point(dets[i].bbox.left + det_info.size() * 11, dets[i].bbox.top - 15);
+            bbox_points[0][3] = cv::Point(dets[i].bbox.left, dets[i].bbox.top - 15);
+            cv::fillPoly(img, bbox_point0, num_points, 1, color);
+            cv::putText(img, det_info, bbox_points[0][0], cv::FONT_HERSHEY_DUPLEX, 0.6, cv::Scalar(255, 255, 255), 1, cv::LINE_AA);
+        }
+    }
+    cv::imshow(windows_title, img);
+    cv::waitKey(cvDelayTime);
 }
 
 void utils::save_txt(const std::vector<std::vector<Detection>>& objects, const std::vector<std::string>& savePath, std::vector<cv::Mat>& imgsBatch)

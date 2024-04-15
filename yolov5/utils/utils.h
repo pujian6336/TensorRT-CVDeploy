@@ -51,6 +51,8 @@ namespace utils {
 	void show(const std::vector<Detection>& objects, const std::vector<std::string>& classNames,
 		const int& cvDelayTime, cv::Mat& img);
 
+	void drow_mask_bbox(cv::Mat& img, std::vector<Detection>& dets, const std::vector<std::string>& classNames, std::vector<cv::Mat>& masks, const int& cvDelayTime);
+
 
 	// 统计主机程序运行时间
 	class HostTime {
