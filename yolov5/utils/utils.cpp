@@ -68,10 +68,8 @@ utils::CUDATimer::~CUDATimer() {
     cudaEventDestroy(end);
 }
 
-void utils::show(const std::vector<Detection>& objects, const std::vector<std::string>& classNames, const int& cvDelayTime, cv::Mat& img)
+void utils::DrawDetection(cv::Mat& img, const std::vector<Detection>& objects, const std::vector<std::string>& classNames)
 {
-    std::string windows_title = "image";
-
     cv::Scalar color = cv::Scalar(0, 255, 0);
     cv::Point bbox_points[1][4];
     const cv::Point* bbox_point0[1] = { bbox_points[0] };
@@ -80,11 +78,8 @@ void utils::show(const std::vector<Detection>& objects, const std::vector<std::s
     {
         for (auto& box : objects)
         {
-            if (classNames.size() == 80)
-            {
-                color = utils::Colors::color80[box.class_id];
-            }
-         
+            color = utils::Colors::color20[box.class_id % 20];
+
             cv::rectangle(img, cv::Point(box.bbox.left, box.bbox.top), cv::Point(box.bbox.right, box.bbox.bottom), color, 2, cv::LINE_AA);
             cv::String det_info;
             if (classNames.size() != 0)
@@ -104,14 +99,10 @@ void utils::show(const std::vector<Detection>& objects, const std::vector<std::s
             cv::putText(img, det_info, bbox_points[0][0], cv::FONT_HERSHEY_DUPLEX, 0.6, cv::Scalar(255, 255, 255), 1, cv::LINE_AA);
         }
     }
-    cv::imshow(windows_title, img);
-    cv::waitKey(cvDelayTime);
-
 }
 
-void utils::drow_mask_bbox(cv::Mat& img, std::vector<Detection>& dets, const std::vector<std::string>& classNames, std::vector<cv::Mat>& masks, const int& cvDelayTime)
+void utils::DrawSegmentation(cv::Mat& img, const std::vector<Detection>& dets, const std::vector<cv::Mat>& masks, const std::vector<std::string>& classNames)
 {
-    std::string windows_title = "image";
     cv::Point bbox_points[1][4];
     const cv::Point* bbox_point0[1] = { bbox_points[0] };
     int num_points[] = { 4 };
@@ -120,7 +111,7 @@ void utils::drow_mask_bbox(cv::Mat& img, std::vector<Detection>& dets, const std
     {
         for (size_t i = 0; i < dets.size(); i++)
         {
-            cv::Scalar color = utils::Colors::color80[dets[i].class_id];
+            cv::Scalar color = utils::Colors::color20[dets[i].class_id % 20];
 
             cv::Mat mask_bgr;
 
@@ -138,7 +129,7 @@ void utils::drow_mask_bbox(cv::Mat& img, std::vector<Detection>& dets, const std
             {
                 det_info = cv::format("%i", dets[i].class_id) + " " + cv::format("%.4f", dets[i].conf);
             }
-            
+
             // 在方框右上角绘制对应类别的底色
             bbox_points[0][0] = cv::Point(dets[i].bbox.left, dets[i].bbox.top);
             bbox_points[0][1] = cv::Point(dets[i].bbox.left + det_info.size() * 11, dets[i].bbox.top);
@@ -148,10 +139,7 @@ void utils::drow_mask_bbox(cv::Mat& img, std::vector<Detection>& dets, const std
             cv::putText(img, det_info, bbox_points[0][0], cv::FONT_HERSHEY_DUPLEX, 0.6, cv::Scalar(255, 255, 255), 1, cv::LINE_AA);
         }
     }
-    cv::imshow(windows_title, img);
-    cv::waitKey(cvDelayTime);
 }
-
 void utils::save_txt(const std::vector<std::vector<Detection>>& objects, const std::vector<std::string>& savePath, std::vector<cv::Mat>& imgsBatch)
 {
     if (objects.empty()) { return; }

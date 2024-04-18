@@ -202,7 +202,7 @@ void YOLO_SEG::postprocess(std::vector<std::vector<Detection>>& res, std::vector
 	CUDA_CHECK(cudaMemsetAsync(m_output_objects_device, 0, sizeof(float) * (m_cfg.max_det * m_output_objects_width + 1), m_stream));
 	cuda_decodeSeg((float*)m_buffers[1], m_output_objects_device, m_cfg.batch_size, m_total_objects, m_detect_dims.d[2], m_classes_nums, m_cfg.max_det, m_cfg.conf_threshold, m_stream);
 
-	cuda_nms(m_output_objects_device, m_cfg.iou_threshold, m_cfg.max_det, m_output_objects_width, m_stream);
+	cuda_nms_batch(m_output_objects_device, m_cfg.batch_size, m_cfg.iou_threshold, m_cfg.max_det, m_output_objects_width, m_stream);
 
 	CUDA_CHECK(cudaMemcpyAsync(m_output_objects_host, m_output_objects_device, m_cfg.batch_size * (m_cfg.max_det * 38 + 1) * sizeof(float), cudaMemcpyDeviceToHost, m_stream));
 	CUDA_CHECK(cudaMemcpyAsync(m_output_seg_host, m_buffers[2], m_cfg.batch_size * m_proto_area * sizeof(float), cudaMemcpyDeviceToHost, m_stream));

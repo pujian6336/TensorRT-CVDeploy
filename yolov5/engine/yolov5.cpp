@@ -66,6 +66,12 @@ bool YOLO::init()
 	int inputIndex = m_engine->getBindingIndex(m_cfg.input_output_nodeNames[0].c_str()); // 输入索引
 	int outputIndex = m_engine->getBindingIndex(m_cfg.input_output_nodeNames[1].c_str()); //输出索引
 
+	if (inputIndex < 0 || outputIndex < 0)
+	{
+		sample::gLogError << "input or output nodeName error!" << std::endl;
+		return false;
+	}
+
 	// 获取输入维度信息
 	nvinfer1::Dims input_dims = m_context->getBindingDimensions(inputIndex);
 	if (m_cfg.batch_size != input_dims.d[0])
